@@ -68,10 +68,9 @@ public enum Seasons {
         return IdentifierHelper.mod("textures/gui/" + this.getId() + ".png");
     }
 
-    public boolean requiresClient() {
-        if (this == WILD_LIFE) return true;
-        if (this == NICE_LIFE) return true;
-        return false;
+public boolean requiresClient() {
+    return false;
+}
     }
 
     public boolean isSpecial() {
