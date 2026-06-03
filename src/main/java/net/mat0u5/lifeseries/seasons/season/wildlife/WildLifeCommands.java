@@ -54,7 +54,7 @@ public class WildLifeCommands extends Command {
     }
 
     public List<String> getNonAdminCommands() {
-        return List.of("snail");
+        return List.of("snail", "superpower");
     }
 
     @Override
@@ -186,6 +186,13 @@ public class WildLifeCommands extends Command {
                         )
                 )
         );
+        // /superpower use — lets vanilla (no-mod) clients trigger their superpower in place of the keybind
+        dispatcher.register(
+            literal("superpower")
+                .then(literal("use")
+                    .executes(context -> useSuperpower(context.getSource()))
+                )
+        );
         dispatcher.register(
             literal("superpower")
                 .requires(PermissionManager::isAdmin)
@@ -247,6 +254,18 @@ public class WildLifeCommands extends Command {
                         .executes(context -> randomizeFood(context.getSource()))
                 )
         );
+    }
+
+    public int useSuperpower(CommandSourceStack source) {
+        if (checkBanned(source)) return -1;
+        ServerPlayer player = source.getPlayer();
+        if (player == null) return -1;
+        if (!WildcardManager.isActiveWildcard(Wildcards.SUPERPOWERS)) {
+            OtherUtils.sendCommandFailure(source, Component.literal("Superpowers wildcard is not active."));
+            return -1;
+        }
+        SuperpowersWildcard.pressedSuperpowerKey(player);
+        return 1;
     }
 
     public int despawnSnailFor(CommandSourceStack source, Collection<ServerPlayer> targets) {
