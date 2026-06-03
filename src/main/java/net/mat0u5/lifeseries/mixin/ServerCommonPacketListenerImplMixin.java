@@ -14,7 +14,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.resources.Identifier;
-import net.minecraft.server.network.ServerPlayerConnection;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -80,18 +79,14 @@ public class ServerCommonPacketListenerImplMixin {
 
     /**
      * A client is considered "vanilla" (no LifeSeries mod) when it has not completed
-     * the mod handshake. We check this via the NetworkHandlerServer UUID tracking.
-     * Since this mixin runs on the server's packet listener (which has a reference to
-     * the Connection but not directly to the player UUID), we resolve the player from
-     * the connection via the server's player list.
+     * the mod handshake. Since this mixin runs inside the packet listener itself,
+     * we cast (Object)this to ServerGamePacketListenerImpl to get the player directly,
+     * avoiding any need to access the protected connection field.
      */
     private boolean isVanillaClient() {
         try {
-            if (LifeSeries.server == null) return false;
-            for (var player : LifeSeries.server.getPlayerList().getPlayers()) {
-                if (player.connection != null && player.connection.connection == connection) {
-                    return !NetworkHandlerServer.wasHandshakeSuccessful(player);
-                }
+            if ((Object)this instanceof net.minecraft.server.network.ServerGamePacketListenerImpl handler) {
+                return !NetworkHandlerServer.wasHandshakeSuccessful(handler.player);
             }
         } catch (Exception ignored) {}
         return false;
