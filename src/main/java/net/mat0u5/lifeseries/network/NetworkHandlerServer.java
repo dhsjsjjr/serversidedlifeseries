@@ -88,7 +88,9 @@ public class NetworkHandlerServer {
     public static final String preLoginPacketID = "preloginpacket";
     public static final List<UUID> handshakeSuccessful = new ArrayList<>();
     public static final List<UUID> preLoginHandshake = new ArrayList<>();
-    public static RegistryOverrideBahaviours REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.LOGIN;
+    // ALWAYS: strip custom mod entity registry entries for all vanilla clients by default,
+    // preventing "Unknown entity type" / network protocol errors on server-only setups.
+    public static RegistryOverrideBahaviours REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.ALWAYS;
     public static boolean PRE_LOGIN_OVERRIDE_KICK = false;
 
     //? if <= 1.20.3 {
@@ -138,14 +140,16 @@ public class NetworkHandlerServer {
     }
 
     public static void reload() {
-        String registryOverrideBehaviour = LifeSeries.getMainConfig().getOrCreateProperty("registry_override_behavior", "login");
+        // Default is "always" so vanilla clients always receive a stripped registry,
+        // preventing "Unknown entity type" network protocol errors for custom entities.
+        String registryOverrideBehaviour = LifeSeries.getMainConfig().getOrCreateProperty("registry_override_behavior", "always");
         if (registryOverrideBehaviour.equalsIgnoreCase("never")) REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.NEVER;
         else if (registryOverrideBehaviour.equalsIgnoreCase("always")) REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.ALWAYS;
         else if (registryOverrideBehaviour.equalsIgnoreCase("login")) REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.LOGIN;
         else if (registryOverrideBehaviour.equalsIgnoreCase("season")) REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.SEASON;
         else {
-            LifeSeries.getMainConfig().setProperty("registry_override_behavior", "login");
-            REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.LOGIN;
+            LifeSeries.getMainConfig().setProperty("registry_override_behavior", "always");
+            REGISTRY_OVERRIDE_BEHAVIOR = RegistryOverrideBahaviours.ALWAYS;
         }
 
         PRE_LOGIN_OVERRIDE_KICK = LifeSeries.getMainConfig().getOrCreateBoolean("pre_login_override_kick", false);
