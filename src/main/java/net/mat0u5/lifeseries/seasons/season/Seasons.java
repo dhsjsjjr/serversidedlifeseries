@@ -68,9 +68,8 @@ public enum Seasons {
         return IdentifierHelper.mod("textures/gui/" + this.getId() + ".png");
     }
 
-public boolean requiresClient() {
-    return false;
-}
+    public boolean requiresClient() {
+        return false;
     }
 
     public boolean isSpecial() {
