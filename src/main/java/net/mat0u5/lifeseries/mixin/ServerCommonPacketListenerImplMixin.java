@@ -5,12 +5,16 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import io.netty.buffer.Unpooled;
 import net.mat0u5.lifeseries.LifeSeries;
 import net.mat0u5.lifeseries.entity.fakeplayer.FakeClientConnection;
+import net.mat0u5.lifeseries.network.NetworkHandlerServer;
+import net.mat0u5.lifeseries.registries.MobRegistry;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.network.ServerPlayerConnection;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -43,12 +47,54 @@ public class ServerCommonPacketListenerImplMixin {
     @Shadow
     protected Connection connection;
 
+    /**
+     * For server-only operation: intercept outbound packets to vanilla (non-modded) clients.
+     * - Blocks ClientboundAddEntityPacket for our custom entity types (Snail, TriviaBot,
+     *   AngrySnowman) when the receiving client has not completed the LifeSeries handshake.
+     *   Without this, vanilla clients crash with "Unknown entity type" / network protocol errors
+     *   the moment a custom entity enters their view range.
+     * - Still blocks all packets for FakeClientConnection as before.
+     */
     @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;)V", at = @At("HEAD"), cancellable = true)
     public void sendPacket(Packet<?> packet, CallbackInfo ci) {
         if (LifeSeries.modFullyDisabled()) return;
         if (connection instanceof FakeClientConnection) {
             ci.cancel();
+            return;
         }
+        // Drop custom-entity spawn packets for vanilla clients to prevent protocol errors.
+        if (packet instanceof ClientboundAddEntityPacket addEntity) {
+            if (isModEntity(addEntity) && isVanillaClient()) {
+                ci.cancel();
+            }
+        }
+    }
+
+    /** Returns true if this entity spawn packet is for one of our custom mob types. */
+    private boolean isModEntity(ClientboundAddEntityPacket packet) {
+        var type = packet.getType();
+        return type == MobRegistry.SNAIL
+            || type == MobRegistry.TRIVIA_BOT
+            || type == MobRegistry.ANGRY_SNOWMAN;
+    }
+
+    /**
+     * A client is considered "vanilla" (no LifeSeries mod) when it has not completed
+     * the mod handshake. We check this via the NetworkHandlerServer UUID tracking.
+     * Since this mixin runs on the server's packet listener (which has a reference to
+     * the Connection but not directly to the player UUID), we resolve the player from
+     * the connection via the server's player list.
+     */
+    private boolean isVanillaClient() {
+        try {
+            if (LifeSeries.server == null) return false;
+            for (var player : LifeSeries.server.getPlayerList().getPlayers()) {
+                if (player.connection != null && player.connection.connection == connection) {
+                    return !NetworkHandlerServer.wasHandshakeSuccessful(player);
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
 
